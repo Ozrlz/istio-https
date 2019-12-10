@@ -13,7 +13,7 @@ case "$1" in
     kubectl create -n istio-system secret tls istio-ingressgateway-certs --key httpbin.example.com.key --cert httpbin.example.com.crt
 
     # Define final text
-    read -r FINAL_TEXT <<EOF
+    read -r -d '' FINAL_TEXT <<EOF
 You can either use curl or modify your /etc/hosts file to include the istio ingressgateway IP that resolves to httpbin.example.com
 curl -v -HHost:httpbin.example.com --resolve httpbin.example.com:$SECURE_INGRESS_PORT:$INGRESS_HOST --cacert example.com.crt https://httpbin.example.com:$SECURE_INGRESS_PORT/status/418
 EOF
@@ -23,7 +23,7 @@ EOF
     rm *.(crt|key|csr)
     kubectl delete -n istio-system secret istio-ingressgateway-certs
     # Define final text
-    read -r FINAL_TEXT << EOF
+    read -r -d '' FINAL_TEXT << EOF
 The files and kubernetes resources were deleted
 Run apply again to create those again
 EOF
