@@ -2,20 +2,20 @@
 
 case "$1" in
   apply)
-    # Create CA (example.com)
-    openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -subj '/O=example Inc./CN=example.com' -keyout example.com.key -out example.com.crt
+    # Create CA (ozrlz.com)
+    openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -subj '/O=Ozrlz Inc./CN=ozrlz.com' -keyout ozrlz.com.key -out ozrlz.com.crt
 
-    # Create httpbin.example.com cert and key
-    openssl req -out httpbin.example.com.csr -newkey rsa:2048 -nodes -keyout httpbin.example.com.key -subj "/CN=httpbin.example.com/O=httpbin organization"
-    openssl x509 -req -days 365 -CA example.com.crt -CAkey example.com.key -set_serial 0 -in httpbin.example.com.csr -out httpbin.example.com.crt
+    # Create flask.ozrlz.com cert and key
+    openssl req -out flask.ozrlz.com.csr -newkey rsa:2048 -nodes -keyout flask.ozrlz.com.key -subj "/CN=flask.ozrlz.com/O=Flask organization"
+    openssl x509 -req -days 365 -CA ozrlz.com.crt -CAkey ozrlz.com.key -set_serial 0 -in flask.ozrlz.com.csr -out flask.ozrlz.com.crt
 
     # Create the secret for the ingressgateway to be able to mount the certs
-    kubectl create -n istio-system secret tls istio-ingressgateway-certs --key httpbin.example.com.key --cert httpbin.example.com.crt
+    kubectl create -n istio-system secret tls istio-ingressgateway-certs --key flask.ozrlz.com.key --cert flask.ozrlz.com.crt
 
     # Define final text
     read -r -d '' FINAL_TEXT <<EOF
-You can either use curl or modify your /etc/hosts file to include the istio ingressgateway IP that resolves to httpbin.example.com
-curl -v -HHost:httpbin.example.com --resolve httpbin.example.com:$SECURE_INGRESS_PORT:$INGRESS_HOST --cacert example.com.crt https://httpbin.example.com:$SECURE_INGRESS_PORT/status/418
+You can either use curl or modify your /etc/hosts file to include the istio ingressgateway IP that resolves to flask.ozrlz.com
+curl -v -HHost:flask.ozrlz.com --resolve flask.ozrlz.com:$SECURE_INGRESS_PORT:$INGRESS_HOST --cacert ozrlz.com.crt https://flask.ozrlz.com:$SECURE_INGRESS_PORT/
 EOF
     ;;
   delete)
@@ -45,48 +45,48 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: httpbin
+  name: flask
   namespace: istio-stuff
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: httpbin
+  name: flask
   labels:
-    app: httpbin
+    app: flask
   namespace: istio-stuff
 spec:
   ports:
   - name: http
     port: 8000
-    targetPort: 80
+    targetPort: 5000
   selector:
-    app: httpbin
+    app: flask
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: httpbin
+  name: flask
   namespace: istio-stuff
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: httpbin
+      app: flask
       version: v1
   template:
     metadata:
       labels:
-        app: httpbin
+        app: flask
         version: v1
     spec:
-      serviceAccountName: httpbin
+      serviceAccountName: flask
       containers:
-      - image: docker.io/kennethreitz/httpbin
+      - image: ozrlz/flask-client:k8s
         imagePullPolicy: IfNotPresent
-        name: httpbin
+        name: flask
         ports:
-        - containerPort: 80
+        - containerPort: 5000
 EOF
 
 # Create a gateway
@@ -94,7 +94,7 @@ kubectl ${1} -f - <<EOF
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: httpbin-gateway
+  name: flask-gateway
   namespace: istio-stuff
 spec:
   selector:
@@ -109,7 +109,7 @@ spec:
       serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
       privateKey: /etc/istio/ingressgateway-certs/tls.key
     hosts:
-    - "httpbin.example.com"
+    - "flask.ozrlz.com"
 EOF
 
 # Create a VirtualService
@@ -117,22 +117,22 @@ kubectl ${1} -f - <<EOF
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: httpbin
+  name: flask
   namespace: istio-stuff
 spec:
   hosts:
-  - "httpbin.example.com"
+  - "flask.ozrlz.com"
   gateways:
-  - httpbin-gateway
+  - flask-gateway
   http:
   - match:
     - uri:
-        prefix: /
+        exact: /
     route:
     - destination:
         port:
           number: 8000
-        host: httpbin
+        host: flask
 EOF
 
 
